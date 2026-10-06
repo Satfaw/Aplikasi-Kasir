@@ -2,19 +2,19 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\CustomerResource\Pages;
-use App\Models\Customer;
+use App\Filament\Resources\ProductResource\Pages;
+use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 
-class CustomerResource extends Resource
+class ProductResource extends Resource
 {
-    protected static ?string $model = Customer::class;
+    protected static ?string $model = Product::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    protected static ?string $navigationIcon = 'heroicon-o-square-3-stack-3d';
 
     public static function form(Form $form): Form
     {
@@ -23,13 +23,13 @@ class CustomerResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('phone')
-                    ->tel()
+                Forms\Components\TextInput::make('price')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('address')
+                    ->numeric()
+                    ->prefix('IDR'),
+                Forms\Components\TextInput::make('stock')
                     ->required()
-                    ->maxLength(255),
+                    ->numeric(),
             ]);
     }
 
@@ -39,10 +39,12 @@ class CustomerResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('phone')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('address')
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('price')
+                    ->money('IDR')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('stock')
+                    ->numeric()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -77,10 +79,10 @@ class CustomerResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListCustomers::route('/'),
-            'create' => Pages\CreateCustomer::route('/create'),
-            'view' => Pages\ViewCustomer::route('/{record}'),
-            'edit' => Pages\EditCustomer::route('/{record}/edit'),
+            'index' => Pages\ListProducts::route('/'),
+            'create' => Pages\CreateProduct::route('/create'),
+            'view' => Pages\ViewProduct::route('/{record}'),
+            'edit' => Pages\EditProduct::route('/{record}/edit'),
         ];
     }
 }

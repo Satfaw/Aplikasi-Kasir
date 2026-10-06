@@ -28,8 +28,12 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Color Mart')
+            ->brandLogo('/images/logo-background-putih.png')
+            ->darkModeBrandLogo('/images/logo-pekat.png')
+            ->brandLogoHeight('50px')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Sky,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
