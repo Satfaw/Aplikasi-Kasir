@@ -28,6 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->databaseNotifications()
             ->brandName('Color Mart')
             ->brandLogo('/images/logo-background-putih.png')
             ->darkModeBrandLogo('/images/logo-pekat.png')
