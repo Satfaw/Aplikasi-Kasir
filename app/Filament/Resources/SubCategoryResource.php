@@ -6,12 +6,19 @@ use App\Filament\Resources\SubCategoryResource\Pages;
 use App\Filament\Resources\SubCategoryResource\RelationManagers;
 use App\Models\SubCategory;
 use Filament\Forms;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SubCategoryResource extends Resource
@@ -19,15 +26,27 @@ class SubCategoryResource extends Resource
     protected static ?string $model = SubCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-square-2-stack';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-square-2-stack';
     protected static ?string $navigationGroup = 'Product Management';
     protected static ?int $navigationSort = 3;
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name'];
+    }
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Name' => $record->name ?? 'N/A',
+            'Category' =>$record->category->name ?? 'N/A',
+        ];
+    }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Select::make('category_id')
-                    ->relationship('category','name')
+                    ->relationship('category', 'name')
                     ->required(),
                 Forms\Components\TextInput::make('name')
                     ->required()

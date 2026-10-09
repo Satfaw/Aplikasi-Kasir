@@ -33,6 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo('/images/logo-background-putih.png')
             ->darkModeBrandLogo('/images/logo-pekat.png')
             ->brandLogoHeight('50px')
+            ->sidebarFullyCollapsibleOnDesktop()
             ->colors([
                 'primary' => Color::Sky,
             ])

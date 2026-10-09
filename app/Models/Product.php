@@ -18,6 +18,10 @@ class Product extends Model
         'subcategory_id',
         'is_active',
         'in_stock',
+        'sku',
+        'barcode',
+        'base_price',
+        'description',
     ];
 
     public function orderdetail(): HasMany

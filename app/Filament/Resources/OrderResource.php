@@ -8,7 +8,6 @@ use App\Filament\Resources\OrderResource\RelationManagers\OrderDetailRelationMan
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
-use Filament\Tables\Actions\ExportAction;
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
@@ -24,19 +23,48 @@ use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\ExportAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-
-
-
-
+use Illuminate\Database\Eloquent\Model;
+use Override;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-shopping-bag';
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['id','customer.name'];
+    }
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Order ID' =>$record->id ?? 'N/A',
+            'Customer Name' =>$record->customer?->name ?? 'N/A',
+        ];
+    }
+
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('status', 'new')->count();
+    }
+
+    #[Override]
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return static::getModel()::count() > 0 ? 'info' : 'primary';
+    }
+
+    #[Override]
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'The number of new orders';
+    }
 
     public static function form(Form $form): Form
     {
