@@ -11,6 +11,7 @@ use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -38,13 +39,13 @@ class OrderResource extends Resource
     protected static ?string $activeNavigationIcon = 'heroicon-s-shopping-bag';
     public static function getGloballySearchableAttributes(): array
     {
-        return ['id','customer.name'];
+        return ['id', 'customer.name'];
     }
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            'Order ID' =>$record->id ?? 'N/A',
-            'Customer Name' =>$record->customer?->name ?? 'N/A',
+            'Order ID' => $record->id ?? 'N/A',
+            'Customer Name' => $record->customer?->name ?? 'N/A',
         ];
     }
 
@@ -92,7 +93,12 @@ class OrderResource extends Resource
                                         $customer = Customer::find($state);
                                         $set('phone', $customer->phone ?? null);
                                         $set('address', $customer->address ?? null);
-                                    }),
+                                    })
+                                    ->createOptionForm([
+                                        TextInput::make('name'),
+                                        TextInput::make('phone'),
+                                        TextInput::make('address'),
+                                    ]),
                                 Placeholder::make('phone')
                                     ->content(fn(Get $get) => Customer::find($get('customer_id'))?->phone ?? '-'),
                                 Placeholder::make('address')
@@ -106,7 +112,8 @@ class OrderResource extends Resource
                                     ->relationship()
                                     ->schema([
                                         Select::make('product_id')
-                                            ->relationship('product', 'name')
+                                            ->relationship('product', 'name', modifyQueryUsing: fn(\Illuminate\Database\Eloquent\Builder $query)
+                                            => $query->where('is_active', true))
                                             ->reactive()
                                             ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -121,14 +128,22 @@ class OrderResource extends Resource
                                                 $total = collect($items)->sum(fn($item) => $item['subtotal'] ?? 0);
                                                 $set('../../total_price', $total);
 
+                                                $tax_rate = $get('../../tax_rate');
+                                                $tax_amount = $total * $tax_rate / 100;
+                                                $set('../../tax_amount', $tax_amount);
+                                                $set('../../total_payment', $total + $tax_amount);
+
                                                 $discount = $get('../../discount');
                                                 $discount_amount = $total * $discount / 100;
                                                 $set('../../discount_amount', $discount_amount);
                                                 $set('../../total_payment', $total - $discount_amount);
-                                            }),
+                                            })
+                                            ->searchable()
+                                            ->columnSpanFull(),
                                         TextInput::make('price')
                                             ->readOnly()
                                             ->numeric()
+                                            ->step(1)
                                             ->formatStateUsing(fn($state, Get $get) => $state ?? Product::find($get('product_id'))?->price ?? 0)
                                             ->prefix('IDR'),
                                         TextInput::make('qty')
@@ -141,18 +156,28 @@ class OrderResource extends Resource
                                                 $items = $get('../../orderdetail') ?? [];
                                                 $total = collect($items)->sum(fn($item) => $item['subtotal'] ?? 0);
                                                 $set('../../total_price', $total);
+                                                $tax_rate = $get('../../tax_rate');
+                                                $tax_amount = $total * $tax_rate / 100;
+                                                $set('../../tax_amount', $tax_amount);
+
                                                 $discount = $get('../../discount');
                                                 $discount_amount = $total * $discount / 100;
                                                 $set('../../discount_amount', $discount_amount);
-                                                $set('../../total_payment', $total - $discount_amount);
+                                                $set('../../total_payment', $total - $discount_amount + $tax_amount);
                                             })
-                                            ->minValue(1),
+                                            ->minValue(1)
+                                            ->maxValue(function (Get $get) {
+                                                $productID = $get('product_id');
+                                                $product = Product::find($productID);
+                                                return $product?->stock ?? 0;
+                                            }),
                                         TextInput::make('subtotal')
                                             ->numeric()
+                                            ->step(1)
                                             ->readOnly()
                                             ->default(0)
                                             ->prefix('IDR'),
-                                    ])->columns(4)
+                                    ])->columns(3)
                                     ->hiddenLabel()
                                     ->addAction(
                                         fn(Action $action) => $action
@@ -182,6 +207,15 @@ class OrderResource extends Resource
                             ->columnSpanFull()
                             ->prefix('IDR')
                             ->default(0),
+                        TextInput::make('tax_rate')
+                            ->columnSpan(2)
+                            ->default(11)
+                            ->suffix('%')
+                            ->readOnly(),
+                        TextInput::make('tax_amount')
+                            ->columnSpan(2)
+                            ->default(0)
+                            ->prefix('IDR '),
                         TextInput::make('discount')
                             ->columnSpan(2)
                             ->reactive()
@@ -239,6 +273,9 @@ class OrderResource extends Resource
                     ->prefix('IDR ')
                     ->numeric()
                     ->sortable(),
+                TextColumn::make('tax_amount')
+                    ->prefix('IDR')
+                    ->numeric(),
                 TextColumn::make('discount')
                     ->suffix('%'),
                 TextColumn::make('discount_amount')

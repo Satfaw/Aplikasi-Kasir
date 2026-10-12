@@ -26,14 +26,14 @@ class UserResource extends Resource
     #[Override]
     public static function getGloballySearchableAttributes(): array
     {
-        return['name','email'];
+        return ['name', 'email'];
     }
     #[Override]
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            'Name' =>$record->name ?? 'N/A',
-            'Email' =>$record->email ?? 'N/A',
+            'Name' => $record->name ?? 'N/A',
+            'Email' => $record->email ?? 'N/A',
         ];
     }
 
@@ -53,6 +53,11 @@ class UserResource extends Resource
                     ->password()
                     ->required()
                     ->maxLength(255),
+                Forms\Components\Select::make('roles')
+                    ->relationship('roles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->searchable(),
             ]);
     }
 
@@ -63,6 +68,9 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('roles.name')
+                    ->badge()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()

@@ -7,8 +7,10 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "bezhansalleh/filament-shield": "^3.9",
         "filament/filament": "^3.2",
         "filament/notifications": "^3.3",
+        "flowframe/laravel-trend": "^0.5.0",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0"
     },

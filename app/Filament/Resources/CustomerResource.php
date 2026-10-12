@@ -3,7 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CustomerResource\Pages;
+use App\Filament\Resources\CustomerResource\RelationManagers\OrdersRelationManager;
 use App\Models\Customer;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
@@ -20,11 +22,10 @@ class CustomerResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $activeNavigationIcon = 'heroicon-s-user-group';
-    protected static ?string $navigationGroup = 'User Management';
-    protected static ?int $navigationSort = 5;
+    protected static ?string $navigationGroup = 'Customer Management';
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'phone','address'];
+        return ['name', 'phone', 'address'];
     }
     #[Override]
     public static function getGlobalSearchResultDetails(Model $record): array
@@ -85,9 +86,11 @@ class CustomerResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\DeleteAction::make(),
+                ])
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -99,7 +102,7 @@ class CustomerResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            OrdersRelationManager::class,
         ];
     }
 

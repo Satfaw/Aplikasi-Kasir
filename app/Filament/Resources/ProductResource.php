@@ -38,19 +38,19 @@ class ProductResource extends Resource
     protected static ?string $activeNavigationIcon = 'heroicon-s-rectangle-stack';
     protected static ?string $navigationGroup = 'Product Management';
     protected static ?int $navigationSort = 4;
-        public static function getGloballySearchableAttributes(): array
+    public static function getGloballySearchableAttributes(): array
     {
-        return['name','sku','barcode','brand.name','category.name','subcategory.name'];
+        return ['name', 'sku', 'barcode', 'brand.name', 'category.name', 'subcategory.name'];
     }
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            'Name' =>$record->name ?? 'N/A',
-            'SKU' =>$record->sku ?? 'N/A',
-            'Barcode' =>$record->barcode ?? 'N/A',
-            'Brand' =>$record->brand?->name ?? 'N/A',
-            'Category' =>$record->category?->name ?? 'N/A',
-            'Subcategory' =>$record->subcategory->name ?? 'N/A',
+            'Name' => $record->name ?? 'N/A',
+            'SKU' => $record->sku ?? 'N/A',
+            'Barcode' => $record->barcode ?? 'N/A',
+            'Brand' => $record->brand?->name ?? 'N/A',
+            'Category' => $record->category?->name ?? 'N/A',
+            'Subcategory' => $record->subcategory->name ?? 'N/A',
         ];
     }
 
@@ -145,13 +145,23 @@ class ProductResource extends Resource
                         ->reactive()
                         ->afterStateUpdated(function (Get $get, Set $set) {
                             static::generateSku($get, $set);
-                        }),
+                        })
+                        ->createOptionForm([
+                            TextInput::make('name'),
+                            FileUpload::make('image'),
+                            Toggle::make('is_active')
+                        ]),
                     Select::make('category_id')
                         ->relationship('category', 'name', fn($query) => $query->where('is_active', true))
                         ->reactive()
                         ->afterStateUpdated(function (Get $get, Set $set) {
                             static::generateSku($get, $set);
-                        }),
+                        })
+                        ->createOptionForm([
+                            TextInput::make('name'),
+                            FileUpload::make('image'),
+                            Toggle::make('is_active')
+                        ]),
                     Select::make('subcategory_id')
                         ->label('Sub Category')
                         ->options(function (Get $get) {
@@ -164,6 +174,14 @@ class ProductResource extends Resource
                         ->dehydrated()
                         ->afterStateUpdated(function (Get $get, Set $set) {
                             static::generateSku($get, $set);
+                        })->createOptionForm([
+                            Select::make('category_id')
+                                ->options(Category::pluck('name', 'id')),
+                            TextInput::make('name'),
+                            FileUpload::make('image'),
+                            Toggle::make('is_active')
+                        ])->createOptionUsing(function (array $data): int {
+                            return SubCategory::create($data)->getKey('id');
                         }),
                     Forms\Components\FileUpload::make('image')
                         ->image(),
