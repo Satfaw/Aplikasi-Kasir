@@ -2,8 +2,12 @@
 
 namespace App\Filament\Resources\OrderResource\RelationManagers;
 
+use Filament\Schemas\Schema;
+use Filament\Forms\Components\TextInput;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Columns\ImageColumn;
@@ -15,11 +19,11 @@ class OrderDetailRelationManager extends RelationManager
 {
     protected static string $relationship = 'orderdetail';
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
-                Forms\Components\TextInput::make('id')
+        return $schema
+            ->components([
+                TextInput::make('id')
                     ->required()
                     ->maxLength(255),
             ]);
@@ -32,11 +36,11 @@ class OrderDetailRelationManager extends RelationManager
             ->columns([
                 ImageColumn::make('product.image')
                     ->label('image'),
-                Tables\Columns\TextColumn::make('product.name'),
-                Tables\Columns\TextColumn::make('product.price')
+                TextColumn::make('product.name'),
+                TextColumn::make('product.price')
                     ->label('Price'),
-                Tables\Columns\TextColumn::make('qty'),
-                Tables\Columns\TextColumn::make('subtotal'),
+                TextColumn::make('qty'),
+                TextColumn::make('subtotal'),
             ])
             ->filters([
                 //
@@ -44,13 +48,13 @@ class OrderDetailRelationManager extends RelationManager
             ->headerActions([
                 // Tables\Actions\CreateAction::make(),
             ])
-            ->actions([
+            ->recordActions([
                 // Tables\Actions\EditAction::make(),
                 // Tables\Actions\DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

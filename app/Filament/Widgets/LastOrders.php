@@ -22,12 +22,12 @@ class LastOrders extends BaseWidget
             ->columns([
                 TextColumn::make('id')
                     ->label('Order ID'),
-                Tables\Columns\TextColumn::make('customer.name')
+                TextColumn::make('customer.name')
                     ->sortable(),
                 TextColumn::make('total_payment')
                     ->prefix('IDR ')
                     ->numeric(),
-                Tables\Columns\TextColumn::make('date')
+                TextColumn::make('date')
                     ->date()
                     ->sortable(),
             ])->paginated(false);

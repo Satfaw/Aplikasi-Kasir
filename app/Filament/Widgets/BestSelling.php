@@ -15,7 +15,7 @@ class BestSelling extends BaseWidget
 {
     protected static ?int $sort = 4;
     protected static ?string $heading = "Best Seller";
-    public function getTableRecordKey(Model $record): string
+    public function getTableRecordKey(Model|array $record): string
     {
         return (string) $record->product_id;
     }
