@@ -1,0 +1,18 @@
+<?php
+
+namespace App\Filament\Resources\Suppliers\Pages;
+
+use App\Filament\Resources\Suppliers\SupplierResource;
+use Filament\Resources\Pages\CreateRecord;
+use Override;
+
+class CreateSupplier extends CreateRecord
+{
+    protected static string $resource = SupplierResource::class;
+
+    #[Override]
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+}
