@@ -2,35 +2,37 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Group;
-use Filament\Schemas\Components\Section;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\ProductResource\Pages\ListProducts;
-use App\Filament\Resources\ProductResource\Pages\CreateProduct;
-use App\Filament\Resources\ProductResource\Pages\ViewProduct;
-use App\Filament\Resources\ProductResource\Pages\EditProduct;
 use App\Filament\Resources\ProductResource\Pages;
+use App\Filament\Resources\ProductResource\Pages\CreateProduct;
+use App\Filament\Resources\ProductResource\Pages\EditProduct;
+use App\Filament\Resources\ProductResource\Pages\ListProducts;
+use App\Filament\Resources\ProductResource\Pages\ViewProduct;
 use App\Filament\Resources\ProductResource\RelationManagers;
 use App\Models\Brand;
+use App\Models\BaseUnit;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\SubCategory;
-
+use App\Models\Uom;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
+
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -119,12 +121,61 @@ class ProductResource extends Resource
 
                         TextInput::make('base_price')
                             ->numeric()
-                            ->prefix('IDR '),
+                            ->prefix('IDR ')
+                            ->reactive()
+                            ->afterStateUpdated(function (callable $get, callable $set) {
+                                $set('gross_margin', ($get('price') ?? 0) - ($get('base_price') ?? 0));
+                            }),
 
                         TextInput::make('price')
                             ->required()
                             ->numeric()
-                            ->prefix('IDR '),
+                            ->prefix('IDR ')
+                            ->reactive()
+                            ->afterStateUpdated(function (callable $get, callable $set) {
+                                $set('gross_margin', ($get('price') ?? 0) - ($get('base_price') ?? 0));
+                            }),
+
+                        TextInput::make('gross_margin')
+                            ->label('Gross Margin')
+                            ->required()
+                            ->numeric()
+                            ->prefix('IDR ')
+                            ->reactive()
+                            ->afterStateUpdated(function (callable $get, callable $set) {
+                                $set('gross_margin', ($get('price') ?? 0) - ($get('base_price') ?? 0));
+                            })
+                            ->afterStateHydrated(function (callable $get, callable $set) {
+                                $set('gross_margin', ($get('price') ?? 0) - ($get('base_price') ?? 0));
+                            }),
+                        Select::make('uom_id')
+                            ->label('UoM Code')
+                            ->relationship('uom', 'code')
+                            ->reactive()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                $uom = Uom::with('base_unit')->find($state);
+                                if($uom){
+                                    $set('base_unit', $uom->base_unit?->id);
+                                    $set('purchase_unit', $uom->id);
+                                }
+                            })
+                            ->afterStateHydrated(function ($state, callable $set) {
+                                $uom = Uom::with('base_unit')->find($state);
+                                if($uom){
+                                    $set('base_unit', $uom->base_unit?->id);
+                                    $set('purchase_unit', $uom->id);
+                                }
+                            }),
+                        Select::make('base_unit')
+                            ->label('Base Unit')
+                            ->options(BaseUnit::pluck('name','id'))
+                            ->reactive(),
+                        Select::make('purchase_unit')
+                            ->label('Purchase Unit')
+                            ->options(Uom::pluck('name','id'))
+                            ->reactive(),
+                        TextInput::make('conversion_factor')
+                            ->label('Conversion'),
 
                         TextInput::make('stock')
                             ->required()

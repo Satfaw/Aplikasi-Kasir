@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
             $table->date('purchase_date')->nullable();
             $table->date('received_date')->nullable();
-            $table->decimal('subtotal', 10, 2);
+            $table->decimal('total_before_tax', 10, 2);
             $table->decimal('tax_rate', 10, 2);
             $table->decimal('tax_amount', 10, 2);
             $table->decimal('discount', 5, 2);
