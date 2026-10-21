@@ -36,6 +36,18 @@ class Order extends Model
     #[Override]
     protected static function booted()
     {
+        static::created(function ($order) {
+            if ($order->status === 'completed') {
+                foreach ($order->orderdetail as $detail) {
+                    $product = $detail->product;
+
+                    if ($product) {
+                        $product->decrement('stock', $detail->qty);
+                    }
+                }
+            }
+        });
+
         static::updated(function ($order) {
             $originalStatus = $order->getOriginal('status');
             if ($order->isDirty('status') && $order->status === 'completed') {

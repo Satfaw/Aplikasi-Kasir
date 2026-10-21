@@ -2,43 +2,44 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Schemas\Schema;
-use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
+use App\Filament\Clusters\Products\ProductsCluster;
+use App\Filament\Resources\CategoryResource\Pages\CreateCategory;
+use App\Filament\Resources\CategoryResource\Pages\EditCategory;
+use App\Filament\Resources\CategoryResource\Pages\ListCategories;
+use App\Filament\Resources\CategoryResource\Pages\ViewCategory;
+use App\Models\Category;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use App\Filament\Resources\CategoryResource\Pages\ListCategories;
-use App\Filament\Resources\CategoryResource\Pages\CreateCategory;
-use App\Filament\Resources\CategoryResource\Pages\ViewCategory;
-use App\Filament\Resources\CategoryResource\Pages\EditCategory;
-use App\Filament\Resources\CategoryResource\Pages;
-use App\Filament\Resources\CategoryResource\RelationManagers;
-use App\Models\Category;
-use Filament\Forms;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-squares-2x2';
-    protected static string | \BackedEnum | null $activeNavigationIcon = 'heroicon-s-squares-2x2';
-    protected static string | \UnitEnum | null $navigationGroup = 'Product Management';
-    protected static ?int $navigationSort = 2;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
+
+    protected static string|\BackedEnum|null $activeNavigationIcon = 'heroicon-s-squares-2x2';
+
+    protected static ?string $cluster = ProductsCluster::class;
+
+    protected static ?int $navigationSort = 3;
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name'];
     }
+
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [

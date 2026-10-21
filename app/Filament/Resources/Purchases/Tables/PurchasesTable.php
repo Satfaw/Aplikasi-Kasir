@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Purchases\Tables;
 
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -16,12 +18,16 @@ class PurchasesTable
         return $table
             ->columns([
                 TextColumn::make('purchase_number')
+                    ->label('Purchase Number')
                     ->searchable(),
-                TextColumn::make('user_id')
-                    ->numeric()
+                TextColumn::make('user.name')
+                    ->label('Created By')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
-                TextColumn::make('supplier_id')
-                    ->numeric()
+                TextColumn::make('supplier.name')
+                    ->label('Supplier')
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('purchase_date')
                     ->date()
@@ -30,22 +36,27 @@ class PurchasesTable
                     ->date()
                     ->sortable(),
                 TextColumn::make('subtotal')
-                    ->numeric()
+                    ->label('Subtotal')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('tax_rate')
-                    ->numeric()
+                    ->label('Tax Rate')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('tax_amount')
-                    ->numeric()
+                    ->label('Tax Amount')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('discount')
-                    ->numeric()
+                    ->label('Discount')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('discount_amount')
-                    ->numeric()
+                    ->label('Discount Amount')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->sortable(),
                 TextColumn::make('total_payment')
-                    ->numeric()
+                    ->label('Total Payment')
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge(),
@@ -66,8 +77,11 @@ class PurchasesTable
                 //
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

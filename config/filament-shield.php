@@ -19,6 +19,8 @@ return [
     |
     */
 
+    'enable' => false,
+
     'shield_resource' => [
         'slug' => 'shield/roles',
         'show_model_path' => true,

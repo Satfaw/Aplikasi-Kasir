@@ -2,10 +2,13 @@
 
 namespace App\Filament\Resources\Purchases\Schemas;
 
+use App\Models\BaseUnit;
 use App\Models\Product;
 use App\Models\Purchase;
+use App\Models\Uom;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -13,8 +16,6 @@ use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\FusedGroup;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class PurchaseForm
                 ? intval(substr($last->purchase_number, -4)) + 1
                 : 1;
 
-            return 'PO-' . $year . '-' . str_pad($next, 4, '0', STR_PAD_LEFT);
+            return 'PO-'.$year.'-'.str_pad($next, 4, '0', STR_PAD_LEFT);
         });
     }
 
@@ -53,14 +54,18 @@ class PurchaseForm
                         ->default(fn () => self::generatePurchaseNumber())
                         ->readOnly()
                         ->dehydrated()
-                        ->required(),
+                        ->required()
+                        ->disabled(),
 
-                    TextInput::make('created_by')
+                    Select::make('user_id')
+                        ->default(fn () => Auth::id())
+                        ->options([Auth::id() => Auth::user()?->name])
                         ->hiddenLabel()
+                        ->disabled()
+                        ->dehydrated()
+                        ->columnSpanFull()
                         ->prefix('Created By:')
-                        ->default(fn () => Auth::user()?->name)
-                        ->readOnly()
-                        ->dehydrated(false),
+                        ->required(),
                 ])
                     ->columns(1)
                     ->extraAttributes(['class' => 'w-full']),
@@ -76,13 +81,15 @@ class PurchaseForm
                                 ->columns(3)
                                 ->schema([
                                     Select::make('supplier_id')
+                                        ->required()
                                         ->relationship('supplier', 'name')
                                         ->label('Supplier Name')
                                         ->searchable()
                                         ->preload(),
 
                                     DatePicker::make('purchase_date')
-                                        ->label('Purchase Date'),
+                                        ->label('Purchase Date')
+                                        ->default(today()->toDateString()),
 
                                     DatePicker::make('received_date')
                                         ->label('Received Date'),
@@ -100,18 +107,65 @@ class PurchaseForm
                                             // Product
                                             Select::make('product_id')
                                                 ->label('Product')
+                                                ->required()
                                                 ->relationship('product', 'name')
                                                 ->reactive()
-                                                ->afterStateUpdated(function ($state, callable $set) {
-                                                    $product = Product::find($state);
-                                                    if ($product) {
-                                                        $set('purchase_unit', $product->purchaseUnit?->code ?? '');
-                                                        $set('base_unit', $product->BaseUnit?->code ?? '');
-                                                        $set('conversion', $product->conversion_factor ?? 1);
-                                                        $set('price', 0);
-                                                        $set('subtotal', 0);
-                                                        $set('total_qty', ($product->conversion_factor ?? 1) * 1);
+                                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                                    $product = Product::with(['BaseUnit', 'PurchaseUnit'])->find($state);
+
+                                                    if (! $product) {
+                                                        return;
                                                     }
+
+                                                    if (! $get('purchase_unit')) {
+                                                        $set('purchase_unit', $product->purchase_unit);
+                                                    }
+
+                                                    if (! $get('base_unit')) {
+                                                        $set('base_unit', $product->base_unit);
+                                                    }
+
+                                                    $set('conversion', $product->conversion_factor);
+
+                                                    if (! $get('qty')) {
+                                                        $set('qty', 1);
+                                                    }
+
+                                                    $set('total_qty', $product->conversion_factor * $get('qty'));
+                                                })->columnSpan(2),
+
+                                            // Price — user inputs, default 0
+                                            TextInput::make('price')
+                                                ->label('Price')
+                                                ->required()
+                                                ->numeric()
+                                                ->prefix('IDR')
+                                                ->default(0)
+                                                ->reactive()
+                                                ->dehydrated()
+                                                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                                                    $qty = $get('qty') ?? 1;
+                                                    $set('subtotal', $qty * $state);
+
+                                                    $items = $get('../../purchaseDetails') ?? [];
+                                                    $total = collect($items)->sum(fn ($item) => $item['subtotal'] ?? 0);
+                                                    $set('../../total_before_tax', $total);
+
+                                                    $tax = $get('../../tax_rate');
+
+                                                    if ($tax === null || $tax == 0) {
+                                                        $tax = 11;
+                                                        $set('../../tax_rate', $tax);
+                                                    }
+
+                                                    $taxAmount = ($tax / 100) * $total;
+                                                    $set('../../tax_amount', $taxAmount);
+
+                                                    $discount = $get('../../discount') ?? 0;
+                                                    $discountAmount = ($discount / 100) * $total;
+                                                    $set('../../discount_amount', $discountAmount);
+
+                                                    $set('../../total_payment', $total + $taxAmount - $discountAmount);
                                                 }),
 
                                             // Quantity (fused with purchase unit)
@@ -123,47 +177,31 @@ class PurchaseForm
                                                         ->label('Quantity')
                                                         ->required()
                                                         ->numeric()
-                                                        ->default(1)
-                                                        ->minValue(1)
+                                                        ->default(0)
+                                                        ->minValue(0)
+                                                        ->rule('numeric', 'min:1')
                                                         ->reactive()
                                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                                             $qty = floatval($state ?? 1);
-                                                            $conversion = floatval($get('conversion') ?? 1);
+                                                            $conversion = floatval(Product::find($get('product_id'))?->conversion_factor ?? 1);
+                                                            $set('conversion', $conversion);
                                                             $set('total_qty', $qty * $conversion);
                                                             $price = floatval($get('price') ?? 0);
                                                             $set('subtotal', $qty * $price);
                                                             self::recalculateTotals($get, $set);
                                                         }),
 
-                                                    TextInput::make('purchase_unit')
-                                                        ->label('Purchase Unit')
+                                                    Select::make('purchase_unit')
+                                                        ->options(Uom::pluck('name', 'id'))
                                                         ->placeholder('Unit')
+                                                        ->label('Purchase Unit')
                                                         ->disabled()
                                                         ->dehydrated(),
                                                 ]),
 
-                                            // Price — user inputs, default 0
-                                            TextInput::make('price')
-                                                ->label('Price')
-                                                ->required()
-                                                ->numeric()
-                                                ->prefix('IDR')
-                                                ->default(0)
-                                                ->reactive()
-                                                ->dehydrated()
-                                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                                    $qty = floatval($get('qty') ?? 1);
-                                                    $set('subtotal', $qty * floatval($state ?? 0));
-                                                    self::recalculateTotals($get, $set);
-                                                }),
-
                                             // Hidden conversion factor
-                                            TextInput::make('conversion')
-                                                ->label('Conversion')
-                                                ->numeric()
-                                                ->default(1)
-                                                ->hidden()
-                                                ->dehydrated(),
+                                            Hidden::make('conversion')
+                                                ->default(1),
 
                                             // Total Quantity (fused with base unit)
                                             FusedGroup::make()
@@ -177,9 +215,10 @@ class PurchaseForm
                                                         ->dehydrated()
                                                         ->default(0),
 
-                                                    TextInput::make('base_unit')
-                                                        ->label('Base Unit')
+                                                    Select::make('base_unit')
+                                                        ->options(BaseUnit::pluck('name', 'id'))
                                                         ->placeholder('Unit')
+                                                        ->label('Base Unit')
                                                         ->disabled()
                                                         ->dehydrated(),
                                                 ]),
@@ -200,7 +239,7 @@ class PurchaseForm
                                         ])
                                         ->addAction(
                                             fn (Action $action) => $action
-                                                ->label('Add to purchase details')
+                                                ->label('Add purchase Order')
                                                 ->color('primary')
                                                 ->icon('heroicon-o-plus')
                                         )
@@ -218,8 +257,8 @@ class PurchaseForm
                                 Select::make('status')
                                     ->label('Status')
                                     ->options([
-                                        'draft'     => 'Draft',
-                                        'received'  => 'Received',
+                                        'draft' => 'Draft',
+                                        'received' => 'Received',
                                         'cancelled' => 'Cancelled',
                                     ])
                                     ->default('draft')
@@ -237,13 +276,13 @@ class PurchaseForm
                                 FusedGroup::make([
                                     TextInput::make('tax_rate')
                                         ->reactive()
-                                        ->default(11)
+                                        ->default(0)
                                         ->suffix('%')
                                         ->required()
                                         ->numeric()
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                             $total = floatval($get('total_before_tax') ?? 0);
-                                            $tax   = ($state / 100) * $total;
+                                            $tax = ($state / 100) * $total;
                                             $set('tax_amount', $tax);
                                             $discount = floatval($get('discount_amount') ?? 0);
                                             $set('total_payment', $total + $tax - $discount);
@@ -268,7 +307,7 @@ class PurchaseForm
                                         ->required()
                                         ->reactive()
                                         ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                            $total    = floatval($get('total_before_tax') ?? 0);
+                                            $total = floatval($get('total_before_tax') ?? 0);
                                             $discount = ($state / 100) * $total;
                                             $set('discount_amount', $discount);
                                             $tax = floatval($get('tax_amount') ?? 0);
@@ -300,7 +339,7 @@ class PurchaseForm
                                         ->label('Status payment')
                                         ->options([
                                             'unpaid' => 'Unpaid',
-                                            'paid'   => 'Paid',
+                                            'paid' => 'Paid',
                                         ])
                                         ->default('unpaid')
                                         ->required(),
@@ -308,9 +347,9 @@ class PurchaseForm
                                     Select::make('payment_method')
                                         ->label('Payment method')
                                         ->options([
-                                            'cash'   => 'Cash',
+                                            'cash' => 'Cash',
                                             'credit' => 'Credit',
-                                            'debit'  => 'Debit',
+                                            'debit' => 'Debit',
                                         ])
                                         ->default('cash')
                                         ->required(),
@@ -334,11 +373,11 @@ class PurchaseForm
 
         $set('../../total_before_tax', $totalBeforeTax);
 
-        $taxRate        = floatval($get('../../tax_rate') ?? 11);
-        $taxAmount      = $taxRate / 100 * $totalBeforeTax;
+        $taxRate = floatval($get('../../tax_rate') ?? 11);
+        $taxAmount = $taxRate / 100 * $totalBeforeTax;
         $set('../../tax_amount', $taxAmount);
 
-        $discountRate   = floatval($get('../../discount') ?? 0);
+        $discountRate = floatval($get('../../discount') ?? 0);
         $discountAmount = $discountRate / 100 * $totalBeforeTax;
         $set('../../discount_amount', $discountAmount);
 

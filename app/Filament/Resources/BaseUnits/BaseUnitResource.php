@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\BaseUnits;
 
+use App\Filament\Clusters\Products\ProductsCluster;
 use App\Filament\Resources\BaseUnits\Pages\CreateBaseUnit;
 use App\Filament\Resources\BaseUnits\Pages\EditBaseUnit;
 use App\Filament\Resources\BaseUnits\Pages\ListBaseUnits;
@@ -21,6 +22,10 @@ class BaseUnitResource extends Resource
     protected static ?string $model = BaseUnit::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    protected static ?string $cluster = ProductsCluster::class;
+
+    protected static ?int $navigationSort = 6;
 
     protected static ?string $recordTitleAttribute = 'id';
 

@@ -2,14 +2,16 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ProductResource\Pages;
+use App\Filament\Clusters\Products\ProductsCluster;
+use App\Filament\Exports\OrderExporter;
+use App\Filament\Exports\ProductExporter;
+use App\Filament\Imports\ProductImporter;
 use App\Filament\Resources\ProductResource\Pages\CreateProduct;
 use App\Filament\Resources\ProductResource\Pages\EditProduct;
 use App\Filament\Resources\ProductResource\Pages\ListProducts;
 use App\Filament\Resources\ProductResource\Pages\ViewProduct;
-use App\Filament\Resources\ProductResource\RelationManagers;
-use App\Models\Brand;
 use App\Models\BaseUnit;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\SubCategory;
@@ -19,12 +21,12 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ImportAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
-
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -33,27 +35,30 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static string | \BackedEnum | null $activeNavigationIcon = 'heroicon-s-rectangle-stack';
-    protected static string | \UnitEnum | null $navigationGroup = 'Product Management';
-    protected static ?int $navigationSort = 4;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    protected static string|\BackedEnum|null $activeNavigationIcon = 'heroicon-s-rectangle-stack';
+
+    protected static ?string $cluster = ProductsCluster::class;
+
+    protected static ?int $navigationSort = 1;
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'sku', 'barcode', 'brand.name', 'category.name', 'subcategory.name'];
     }
+
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
@@ -75,17 +80,18 @@ class ProductResource extends Resource
     {
         return 'The number of product';
     }
+
     public static function generateSku(Get $get, Set $set): void
     {
         $brand = Brand::find($get('brand_id'));
         $category = Category::find($get('category_id'));
         $subcategory = SubCategory::find($get('subcategory_id'));
 
-        if (!$category || !$subcategory || !$brand) {
+        if (! $category || ! $subcategory || ! $brand) {
             return;
         }
 
-        //ambil 3 huruf pertama
+        // ambil 3 huruf pertama
 
         $catCode = strtoupper(substr($category->name, 0, 3));
         $subCode = strtoupper(substr($subcategory->name, 0, 3));
@@ -152,27 +158,41 @@ class ProductResource extends Resource
                             ->label('UoM Code')
                             ->relationship('uom', 'code')
                             ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set) {
+                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 $uom = Uom::with('base_unit')->find($state);
-                                if($uom){
+                                if (! $uom) {
+                                    return;
+                                }
+
+                                if (! $get('base_unit')) {
                                     $set('base_unit', $uom->base_unit?->id);
+                                }
+
+                                if (! $get('purchase_unit')) {
                                     $set('purchase_unit', $uom->id);
                                 }
                             })
-                            ->afterStateHydrated(function ($state, callable $set) {
+                            ->afterStateHydrated(function ($state, callable $set, callable $get) {
                                 $uom = Uom::with('base_unit')->find($state);
-                                if($uom){
+                                if (! $uom) {
+                                    return;
+                                }
+
+                                if (! $get('base_unit')) {
                                     $set('base_unit', $uom->base_unit?->id);
+                                }
+
+                                if (! $get('purchase_unit')) {
                                     $set('purchase_unit', $uom->id);
                                 }
                             }),
                         Select::make('base_unit')
                             ->label('Base Unit')
-                            ->options(BaseUnit::pluck('name','id'))
+                            ->options(BaseUnit::pluck('name', 'id'))
                             ->reactive(),
                         Select::make('purchase_unit')
                             ->label('Purchase Unit')
-                            ->options(Uom::pluck('name','id'))
+                            ->options(Uom::pluck('name', 'id'))
                             ->reactive(),
                         TextInput::make('conversion_factor')
                             ->label('Conversion'),
@@ -194,7 +214,7 @@ class ProductResource extends Resource
                         ]),
 
                         RichEditor::make('description')
-                            ->columnSpanFull()
+                            ->columnSpanFull(),
 
                     ])->columns(3)
                         ->description('Product Details'),
@@ -210,7 +230,7 @@ class ProductResource extends Resource
                         ->createOptionForm([
                             TextInput::make('name'),
                             FileUpload::make('image'),
-                            Toggle::make('is_active')
+                            Toggle::make('is_active'),
                         ]),
                     Select::make('category_id')
                         ->relationship('category', 'name', fn($query) => $query->where('is_active', true))
@@ -221,13 +241,16 @@ class ProductResource extends Resource
                         ->createOptionForm([
                             TextInput::make('name'),
                             FileUpload::make('image'),
-                            Toggle::make('is_active')
+                            Toggle::make('is_active'),
                         ]),
                     Select::make('subcategory_id')
                         ->label('Sub Category')
                         ->options(function (Get $get) {
                             $CategoryId = $get('category_id');
-                            if (!$CategoryId) return [];
+                            if (! $CategoryId) {
+                                return [];
+                            }
+
                             return SubCategory::where('category_id', $CategoryId)
                                 ->pluck('name', 'id');
                         })->reactive()
@@ -240,7 +263,7 @@ class ProductResource extends Resource
                                 ->options(Category::pluck('name', 'id')),
                             TextInput::make('name'),
                             FileUpload::make('image'),
-                            Toggle::make('is_active')
+                            Toggle::make('is_active'),
                         ])->createOptionUsing(function (array $data): int {
                             return SubCategory::create($data)->getKey('id');
                         }),
@@ -271,7 +294,8 @@ class ProductResource extends Resource
                     ->sortable(),
                 TextColumn::make('sku')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('barcode')
                     ->sortable()
                     ->searchable()
@@ -302,14 +326,32 @@ class ProductResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('category_id')
+                    ->relationship('category', 'name')
+                    ->label('Category')
+                    ->searchable()
+                    ->preload(),
             ])
+
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(ProductExporter::class)
+                    ->label('Export')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success'),
+                ImportAction::make()
+                    ->importer(ProductImporter::class)
+                    ->label('Import')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('info'),
+            ])
+
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
                     DeleteAction::make(),
-                ])
+                ]),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -2,41 +2,37 @@
 
 namespace App\Filament\Resources;
 
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Group;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Utilities\Get;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\ViewAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportAction;
-use App\Filament\Resources\OrderResource\Pages\ListOrders;
-use App\Filament\Resources\OrderResource\Pages\CreateOrder;
-use App\Filament\Resources\OrderResource\Pages\ViewOrder;
-use App\Filament\Resources\OrderResource\Pages\EditOrder;
 use App\Filament\Exports\OrderExporter;
-use App\Filament\Resources\OrderResource\Pages;
+use App\Filament\Resources\OrderResource\Pages\CreateOrder;
+use App\Filament\Resources\OrderResource\Pages\EditOrder;
+use App\Filament\Resources\OrderResource\Pages\ListOrders;
+use App\Filament\Resources\OrderResource\Pages\ViewOrder;
 use App\Filament\Resources\OrderResource\RelationManagers\OrderDetailRelationManager;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
-use Filament\Forms;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
-use Filament\Tables;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
@@ -44,12 +40,17 @@ class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
-    protected static string | \BackedEnum | null $activeNavigationIcon = 'heroicon-s-shopping-bag';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-shopping-bag';
+
+    protected static ?int $navigationSort = 2;
+
+    protected static string|\BackedEnum|null $activeNavigationIcon = 'heroicon-s-shopping-bag';
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['id', 'customer.name'];
     }
+
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
@@ -57,7 +58,6 @@ class OrderResource extends Resource
             'Customer Name' => $record->customer?->name ?? 'N/A',
         ];
     }
-
 
     public static function getNavigationBadge(): ?string
     {
@@ -109,9 +109,9 @@ class OrderResource extends Resource
                                         TextInput::make('address'),
                                     ]),
                                 Placeholder::make('phone')
-                                    ->content(fn(Get $get) => Customer::find($get('customer_id'))?->phone ?? '-'),
+                                    ->content(fn (Get $get) => Customer::find($get('customer_id'))?->phone ?? '-'),
                                 Placeholder::make('address')
-                                    ->content(fn(Get $get) => Customer::find($get('customer_id'))?->address ?? '-'),
+                                    ->content(fn (Get $get) => Customer::find($get('customer_id'))?->address ?? '-'),
                             ])->columns(3),
 
                         Section::make()
@@ -121,8 +121,7 @@ class OrderResource extends Resource
                                     ->relationship()
                                     ->schema([
                                         Select::make('product_id')
-                                            ->relationship('product', 'name', modifyQueryUsing: fn(Builder $query)
-                                            => $query->where('is_active', true))
+                                            ->relationship('product', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('is_active', true))
                                             ->reactive()
                                             ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                             ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -134,7 +133,7 @@ class OrderResource extends Resource
                                                 $subtotal = $price * $qty;
                                                 $set('subtotal', $subtotal);
                                                 $items = $get('../../orderdetail') ?? [];
-                                                $total = collect($items)->sum(fn($item) => $item['subtotal'] ?? 0);
+                                                $total = collect($items)->sum(fn ($item) => $item['subtotal'] ?? 0);
                                                 $set('../../total_price', $total);
 
                                                 $tax_rate = $get('../../tax_rate');
@@ -153,7 +152,7 @@ class OrderResource extends Resource
                                             ->readOnly()
                                             ->numeric()
                                             ->step(1)
-                                            ->formatStateUsing(fn($state, Get $get) => $state ?? Product::find($get('product_id'))?->price ?? 0)
+                                            ->formatStateUsing(fn ($state, Get $get) => $state ?? Product::find($get('product_id'))?->price ?? 0)
                                             ->prefix('IDR'),
                                         TextInput::make('qty')
                                             ->numeric()
@@ -163,7 +162,7 @@ class OrderResource extends Resource
                                                 $price = $get('price') ?? 0;
                                                 $set('subtotal', $price * $state);
                                                 $items = $get('../../orderdetail') ?? [];
-                                                $total = collect($items)->sum(fn($item) => $item['subtotal'] ?? 0);
+                                                $total = collect($items)->sum(fn ($item) => $item['subtotal'] ?? 0);
                                                 $set('../../total_price', $total);
                                                 $tax_rate = $get('../../tax_rate');
                                                 $tax_amount = $total * $tax_rate / 100;
@@ -178,6 +177,7 @@ class OrderResource extends Resource
                                             ->maxValue(function (Get $get) {
                                                 $productID = $get('product_id');
                                                 $product = Product::find($productID);
+
                                                 return $product?->stock ?? 0;
                                             }),
                                         TextInput::make('subtotal')
@@ -189,11 +189,11 @@ class OrderResource extends Resource
                                     ])->columns(3)
                                     ->hiddenLabel()
                                     ->addAction(
-                                        fn(Action $action) => $action
+                                        fn (Action $action) => $action
                                             ->label('Add product')
                                             ->color('primary')
                                             ->icon('heroicon-o-plus')
-                                    )
+                                    ),
                             ]),
 
                     ])->columnSpan(2),
@@ -261,8 +261,8 @@ class OrderResource extends Resource
                             ->columnSpan(2)
                             ->options([
                                 'unpaid' => 'Unpaid',
-                                'paid' => 'Paid'
-                            ])->default('unpaid')
+                                'paid' => 'Paid',
+                            ])->default('unpaid'),
                     ])->columnSpan(1)
                     ->columns(4),
 
@@ -295,7 +295,7 @@ class OrderResource extends Resource
                     ->numeric(),
                 TextColumn::make('payment_status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'paid' => 'success',
                         'unpaid' => 'danger',
                     })->toggleable(isToggledHiddenByDefault: true),
@@ -303,7 +303,7 @@ class OrderResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (string $state): string => match ($state) {
                         'new' => 'info',
                         'processing' => 'warning',
                         'completed' => 'success',
@@ -343,7 +343,7 @@ class OrderResource extends Resource
                     ->exporter(OrderExporter::class)
                     ->label('Download Excel')
                     ->icon('heroicon-o-document-arrow-down')
-                    ->color('success')
+                    ->color('success'),
             ]);
     }
 
